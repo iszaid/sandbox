@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<title>Skor Penilaian Kesediaan Hospital</title>
+<style>
+  :root{
+    --o-color:#2563eb;   /* Organisasi - biru */
+    --h-color:#059669;   /* Pengguna/Human - hijau */
+    --t-color:#ea580c;   /* Teknologi - oren */
+    --ta-color:#7c3aed;  /* Kebolehsuaian - ungu */
+    --bg:#f4f6fb;
+    --card:#ffffff;
+    --text:#1f2937;
+    --muted:#6b7280;
+    --radius:16px;
+    --shadow:0 4px 14px rgba(15,23,42,.08);
+  }
+  *{box-sizing:border-box;}
+  html{font-size:18px;}
+  body{
+    margin:0;
+    font-family:'Segoe UI',Roboto,Arial,sans-serif;
+    background:linear-gradient(135deg,#eef2ff 0%,#f4f6fb 40%,#f0fdf4 100%);
+    color:var(--text);
+    padding-bottom:60px;
+    font-size:1rem;
+    line-height:1.5;
+  }
+ 
+  /* ===== HEADER (dikecilkan) ===== */
+  header{
+    background:linear-gradient(120deg,#1e3a8a 0%,#2563eb 45%,#059669 100%);
+    color:#fff;
+    padding:14px 20px 34px;
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+  }
+  header::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:radial-gradient(circle at 80% 0%, rgba(255,255,255,.18), transparent 55%);
+  }
+  header h1{
+    margin:0 0 2px;
+    font-size:1.3rem;
+    letter-spacing:.3px;
+  }
+  header p{
+    margin:0;
+    opacity:.9;
+    font-size:0.78rem;
+  }
+ 
+  .container{
+    max-width:900px;
+    margin:-20px auto 0;
+    padding:0 16px;
+  }
+ 
+  /* ===== SCORE CARD (ringkas, sentiasa kelihatan) ===== */
+  .score-card{
+    background:var(--card);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:16px 18px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:16px;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:18px;
+  }
+  .gauge-wrap{
+    position:relative;
+    width:110px;
+    height:110px;
+    flex:0 0 auto;
+  }
+  .gauge-wrap svg{transform:rotate(-90deg);}
+  .gauge-bg{fill:none;stroke:#e5e7eb;stroke-width:11;}
+  .gauge-fg{
+    fill:none;
+    stroke-width:11;
+    stroke-linecap:round;
+    transition:stroke-dasharray .5s ease, stroke .5s ease;
+  }
+  .gauge-label{
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+  }
+  .gauge-label .pct{
+    font-size:1.35rem;
+    font-weight:800;
+  }
+  .gauge-label .lvl{
+    font-size:0.62rem;
+    font-weight:700;
+    padding:2px 8px;
+    border-radius:999px;
+    margin-top:4px;
+    color:#fff;
+    text-align:center;
+  }
+  .breakdown{
+    flex:1 1 220px;
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:8px;
+  }
+  .mini-stat{
+    background:#f8fafc;
+    border-radius:10px;
+    padding:8px 10px;
+    border-left:5px solid var(--o-color);
+  }
+  .mini-stat.h{border-left-color:var(--h-color);}
+  .mini-stat.t{border-left-color:var(--t-color);}
+  .mini-stat.ta{border-left-color:var(--ta-color);}
+  .mini-stat .lab{font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+  .mini-stat .val{font-size:1rem;font-weight:700;}
+ 
+  /* ===== STEP INDICATOR ===== */
+  .stepper{
+    display:flex;
+    justify-content:space-between;
+    gap:6px;
+    margin-bottom:16px;
+    overflow-x:auto;
+    padding-bottom:2px;
+  }
+  .step-dot{
+    flex:1 1 0;
+    min-width:60px;
+    text-align:center;
+    padding:9px 4px;
+    border-radius:10px;
+    background:#e5e7eb;
+    color:#6b7280;
+    font-size:0.72rem;
+    font-weight:700;
+    cursor:pointer;
+    transition:.15s;
+    white-space:nowrap;
+  }
+  .step-dot .n{display:block;font-size:0.9rem;}
+  .step-dot.done{background:#d1fae5;color:#047857;}
+  .step-dot.active{transform:scale(1.05);}
+  .step-dot[data-cat="O"].active{background:var(--o-color);color:#fff;}
+  .step-dot[data-cat="H"].active{background:var(--h-color);color:#fff;}
+  .step-dot[data-cat="T"].active{background:var(--t-color);color:#fff;}
+  .step-dot[data-cat="TA"].active{background:var(--ta-color);color:#fff;}
+  .step-dot[data-cat="SUMMARY"].active{background:#111827;color:#fff;}
+ 
+  /* ===== SECTION (satu dipaparkan pada satu masa) ===== */
+  .section{
+    background:var(--card);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    margin-bottom:16px;
+    overflow:hidden;
+    display:none;
+  }
+  .section.show{display:block;}
+  .section-header{
+    padding:16px 20px;
+    color:#fff;
+  }
+  .section-header .tag{
+    font-weight:800;
+    font-size:0.85rem;
+    background:rgba(255,255,255,.25);
+    padding:4px 12px;
+    border-radius:999px;
+    margin-right:10px;
+  }
+  .section-header h2{
+    margin:0;
+    font-size:1.2rem;
+    display:inline;
+  }
+  .section-header .count{
+    display:block;
+    margin-top:6px;
+    font-size:0.85rem;
+    opacity:.95;
+    font-weight:600;
+  }
+  .section[data-cat="O"] .section-header{background:linear-gradient(90deg,var(--o-color),#1e40af);}
+  .section[data-cat="H"] .section-header{background:linear-gradient(90deg,var(--h-color),#047857);}
+  .section[data-cat="T"] .section-header{background:linear-gradient(90deg,var(--t-color),#c2410c);}
+  .section[data-cat="TA"] .section-header{background:linear-gradient(90deg,var(--ta-color),#5b21b6);}
+ 
+  .items{padding:6px 10px;}
+  .item{
+    padding:14px 10px;
+    border-bottom:1px solid #f1f5f9;
+  }
+  .item:last-child{border-bottom:none;}
+  .item .txt{font-size:1.05rem;line-height:1.45;margin-bottom:10px;}
+  .item .controls{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .toggle{
+    display:flex;
+    border-radius:10px;
+    overflow:hidden;
+    border:1px solid #e2e8f0;
+    flex:0 0 auto;
+  }
+  .toggle button{
+    border:none;
+    background:#fff;
+    padding:9px 18px;
+    font-size:0.95rem;
+    font-weight:700;
+    cursor:pointer;
+    color:var(--muted);
+    transition:.15s;
+  }
+  .toggle button.ya.active{background:#16a34a;color:#fff;}
+  .toggle button.tidak.active{background:#dc2626;color:#fff;}
+  .note-btn{
+    border:1px solid #e2e8f0;
+    background:#f8fafc;
+    padding:9px 14px;
+    border-radius:10px;
+    font-size:0.9rem;
+    font-weight:600;
+    cursor:pointer;
+    color:var(--muted);
+    transition:.15s;
+  }
+  .note-btn.has-note{
+    background:#fef3c7;
+    color:#92400e;
+    border-color:#fde68a;
+  }
+  .note-field{
+    width:100%;
+    margin-top:10px;
+    resize:vertical;
+    min-height:38px;
+    border:1px solid #e2e8f0;
+    border-radius:8px;
+    padding:8px 12px;
+    font-family:inherit;
+    font-size:0.92rem;
+    display:none;
+  }
+  .note-field.open{display:block;}
+  .section-score{
+    padding:12px 20px 18px;
+    text-align:right;
+    font-weight:800;
+    font-size:1.05rem;
+    color:var(--text);
+  }
+ 
+  .nav-row{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    margin:16px 0 6px;
+  }
+  .btn{
+    padding:12px 22px;
+    border-radius:999px;
+    border:none;
+    font-weight:700;
+    font-size:0.95rem;
+    cursor:pointer;
+    box-shadow:var(--shadow);
+  }
+  .btn.primary{background:linear-gradient(120deg,#2563eb,#059669);color:#fff;}
+  .btn.secondary{background:#fff;color:var(--text);border:1px solid #e2e8f0;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+ 
+  .actions{
+    display:flex;
+    gap:12px;
+    justify-content:center;
+    margin:20px 0 10px;
+    flex-wrap:wrap;
+  }
+  .note-privasi{
+    text-align:center;
+    font-size:0.78rem;
+    color:var(--muted);
+    max-width:600px;
+    margin:0 auto;
+    padding:0 20px;
+  }
+ 
+  /* ===== KESIMPULAN ===== */
+  .kesimpulan{
+    background:var(--card);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:22px;
+    margin-bottom:16px;
+  }
+  .kesimpulan h2{
+    margin:0 0 6px;
+    font-size:1.3rem;
+  }
+  .kesimpulan .sub{
+    color:var(--muted);
+    font-size:0.9rem;
+    margin-bottom:16px;
+  }
+  .kesimpulan-hero{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:20px;
+    background:linear-gradient(120deg,#f0f9ff,#f0fdf4);
+    border-radius:14px;
+    padding:18px;
+    margin-bottom:18px;
+  }
+  .kesimpulan-hero .big-pct{
+    font-size:2.6rem;
+    font-weight:800;
+    line-height:1;
+  }
+  .kesimpulan-hero .sum-line{
+    font-size:1rem;
+    color:var(--text);
+  }
+  .kesimpulan-hero .lvl-badge{
+    display:inline-block;
+    font-size:0.95rem;
+    font-weight:800;
+    color:#fff;
+    padding:6px 16px;
+    border-radius:999px;
+    margin-top:6px;
+  }
+  table.ref-table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:0.92rem;
+  }
+  table.ref-table th, table.ref-table td{
+    text-align:left;
+    padding:11px 12px;
+    border-bottom:1px solid #eef2f7;
+  }
+  table.ref-table th{
+    background:#f8fafc;
+    font-size:0.78rem;
+    text-transform:uppercase;
+    letter-spacing:.4px;
+    color:var(--muted);
+  }
+  table.ref-table tr.active-row{
+    background:#eff6ff;
+    box-shadow:inset 4px 0 0 #2563eb;
+    font-weight:700;
+  }
+ 
+  @media(max-width:520px){
+    .breakdown{grid-template-columns:1fr 1fr;}
+    .kesimpulan-hero .big-pct{font-size:2.1rem;}
+    .step-dot{font-size:0.62rem;padding:7px 3px;}
+  }
+</style>
+</head>
+<body>
+ 
+<header>
+  <h1>SKOR PENILAIAN KESEDIAAN</h1>
+  <p>Sandbox Hospital</p>
+</header>
+ 
+<div class="container">
+ 
+  <div class="score-card">
+    <div class="gauge-wrap">
+      <svg viewBox="0 0 120 120" width="110" height="110">
+        <circle class="gauge-bg" cx="60" cy="60" r="52"></circle>
+        <circle id="gaugeFg" class="gauge-fg" cx="60" cy="60" r="52"
+                stroke="#94a3b8" stroke-dasharray="0 326.7"></circle>
+      </svg>
+      <div class="gauge-label">
+        <div class="pct" id="pctLabel">0%</div>
+        <div class="lvl" id="lvlLabel" style="background:#94a3b8;">Belum Dinilai</div>
+      </div>
+    </div>
+ 
+    <div class="breakdown">
+      <div class="mini-stat o"><div class="lab">Organisasi</div><div class="val" id="scoreO">0 / 6</div></div>
+      <div class="mini-stat h"><div class="lab">Pengguna</div><div class="val" id="scoreH">0 / 9</div></div>
+      <div class="mini-stat t"><div class="lab">Teknologi</div><div class="val" id="scoreT">0 / 4</div></div>
+      <div class="mini-stat ta"><div class="lab">Kebolehsuaian</div><div class="val" id="scoreTA">0 / 3</div></div>
+    </div>
+  </div>
+ 
+  <div class="stepper" id="stepper"></div>
+ 
+  <div id="sections"></div>
+ 
+  <div class="section kesimpulan-section" id="kesimpulanSection">
+    <div class="kesimpulan">
+      <h2>📊 Kesimpulan Skor Keseluruhan</h2>
+      <div class="sub">Rujukan: SKOR KESEDIAAN (%) = (O + H + T + TA) ÷ 21 × 100%</div>
+ 
+      <div class="kesimpulan-hero">
+        <div>
+          <div class="big-pct" id="finalPct">0%</div>
+          <div class="lvl-badge" id="finalLvl" style="background:#94a3b8;">Belum Dinilai</div>
+        </div>
+        <div style="flex:1 1 220px;">
+          <div class="sum-line">Jumlah Skor: <b id="finalSum">0</b> daripada <b>21</b> mata</div>
+          <div class="sum-line" id="finalInterp" style="margin-top:8px;">
+            Sila lengkapkan semua perkara di atas untuk mendapatkan kesimpulan penuh.
+          </div>
+        </div>
+      </div>
+ 
+      <table class="ref-table" id="refTable">
+        <thead>
+          <tr><th>Skor</th><th>Tahap</th><th>Interpretasi</th></tr>
+        </thead>
+        <tbody>
+          <tr data-min="0" data-max="49.999"><td>&lt; 50%</td><td>Tidak Sedia</td><td>Keperluan asas belum mencukupi dan penambahbaikan diperlukan</td></tr>
+          <tr data-min="50" data-max="69.999"><td>50–69%</td><td>Kurang Sedia</td><td>Sebahagian keperluan telah dipenuhi tetapi masih terdapat jurang yang ketara untuk dilaksanakan</td></tr>
+          <tr data-min="70" data-max="89.999"><td>70–89%</td><td>Hampir Sedia</td><td>Kebanyakan keperluan telah dipenuhi tetapi beberapa penambahbaikan masih diperlukan</td></tr>
+          <tr data-min="90" data-max="100"><td>≥ 90%</td><td>Telah Sedia</td><td>Keperluan utama telah dipenuhi dan hospital telah menunjukkan tahap kesediaan yang tinggi</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+ 
+  <div class="nav-row">
+    <button class="btn secondary" id="btnPrev" onclick="prevStep()">◀ Sebelum</button>
+    <button class="btn primary" id="btnNext" onclick="nextStep()">Seterusnya ▶</button>
+  </div>
+ 
+  <div class="actions">
+    <button class="btn secondary" onclick="resetForm()">↺ Set Semula</button>
+    <button class="btn primary" onclick="window.print()">🖨️ Cetak / Simpan PDF</button>
+  </div>
+ 
+  <p class="note-privasi">
+    Nota: Semua data dikira secara langsung dalam pelayar (browser) anda sahaja.
+    Aplikasi ini <b>tidak</b> menghantar atau menyimpan sebarang maklumat yang dijana
+    ke pangkalan data / data warehouse.
+  </p>
+</div>
+ 
+<script>
+// ============ DATA STRUKTUR (dari borang SKOR PENILAIAN KESEDIAAN) ============
+const CRITERIA = {
+  O: {
+    title: 'Hospital (Organisation)',
+    short: 'Organisasi',
+    max: 6,
+    items: [
+      'Bilangan Komputer Mencukupi',
+      'Bilangan Sofware dan Network Mencukupi',
+      'Mempunyai Pelan Perlaksanaan Projek (Agile)',
+      'Mempunyai Dasar Keputusan Projek (Agile)',
+      'Mempunyai Pasukan Projek Yang Dikhaskan',
+      'Mempunyai Skop Tugas Pegawai Perantara dan Pasukan Projek Yang Jelas'
+    ]
+  },
+  H: {
+    title: 'Pengguna (Human)',
+    short: 'Pengguna',
+    max: 8,
+    items: [
+      'Mempunyai Perancangan Latihan',
+      'Mempunyai Garis Panduan Risiko Dan Mitigasi',
+      'Mempunyai Garis Panduan Kefungsiaan Jabatan',
+      'Mempunyai Perancangan Keperluan Jabatan',
+      'Mempunyai Perancangan Aliran Kerja Staf',
+      'Mempunyai Dasar Pelindungan Pesakit',
+      'Mempunyai Dasar Bagi Amalan Beretika',
+      'Mempunyai Standard Atau Piawaian Terkini'
+    ]
+  },
+  T: {
+    title: 'Alatan Teknologi (Technology)',
+    short: 'Teknologi',
+    max: 4,
+    items: [
+      'Mempunyai Dasar Perkongsian Data',
+      'Mempunyai Dasar Privasi Dan Kerahsiaan',
+      'Mempunyai Perancangan Garis Masa Yang Sesuai',
+      'Mempunyai Perancangan Keperluan Spesifikasi'
+    ]
+  },
+  TA: {
+    title: 'Kebolehsuaian (Technology Adaptability)',
+    short: 'Kebolehsuaian',
+    max: 3,
+    items: [
+      'Memasukkan Petunjuk Prestasi (KPI) Bagi Mempercepatkan Proses Kerja',
+      'Memasukkan Petunjuk Prestasi (KPI) Bagi Meningkatkan Kualiti Kerja',
+      'Memasukkan Petunjuk Prestasi (KPI) Bagi Meningkatkan Produktiviti Kerja'
+    ]
+  }
+};
+ 
+const STEPS = ['O','H','T','TA','SUMMARY'];
+const STEP_LABEL = {O:'Organisasi',H:'Pengguna',T:'Teknologi',TA:'Kebolehsuaian',SUMMARY:'Kesimpulan'};
+let currentStep = 0;
+ 
+// Pemberat mengikut formula asal borang: SKOR (%) = ((H+O+T+TA)/21) x 100%
+const DIVISOR = 21;
+ 
+const state = {}; // state[cat][index] = { val:'ya'|'tidak'|null, note:'' }
+ 
+function initState(){
+  Object.keys(CRITERIA).forEach(cat=>{
+    state[cat] = CRITERIA[cat].items.map(()=>({val:null, note:''}));
+  });
+}
+initState();
+ 
+// ===== RENDER STEP INDICATOR =====
+function renderStepper(){
+  const wrap = document.getElementById('stepper');
+  wrap.innerHTML = '';
+  STEPS.forEach((cat, idx)=>{
+    const dot = document.createElement('div');
+    dot.className = 'step-dot';
+    dot.setAttribute('data-cat', cat);
+    dot.innerHTML = `<span class="n">${idx+1}</span>${STEP_LABEL[cat]}`;
+    dot.onclick = ()=>goToStep(idx);
+    wrap.appendChild(dot);
+  });
+  updateStepperUI();
+}
+ 
+function updateStepperUI(){
+  document.querySelectorAll('.step-dot').forEach((dot, idx)=>{
+    dot.classList.toggle('active', idx === currentStep);
+    dot.classList.toggle('done', idx < currentStep);
+  });
+}
+ 
+// ===== RENDER SECTIONS (kategori soalan) =====
+function renderSections(){
+  const wrap = document.getElementById('sections');
+  wrap.innerHTML = '';
+  Object.keys(CRITERIA).forEach(cat=>{
+    const info = CRITERIA[cat];
+    const section = document.createElement('div');
+    section.className = 'section';
+    section.setAttribute('data-cat', cat);
+ 
+    const header = document.createElement('div');
+    header.className = 'section-header';
+    header.innerHTML = `<span class="tag">${cat}</span><h2>${info.title}</h2>
+                         <span class="count" id="count-${cat}">0 / ${info.max} Ya</span>`;
+    section.appendChild(header);
+ 
+    const itemsWrap = document.createElement('div');
+    itemsWrap.className = 'items';
+ 
+    info.items.forEach((text, idx)=>{
+      const row = document.createElement('div');
+      row.className = 'item';
+      row.innerHTML = `
+        <div class="txt">${String.fromCharCode(97+idx)}) ${text}</div>
+        <div class="controls">
+          <div class="toggle">
+            <button type="button" class="ya" onclick="setVal('${cat}',${idx},'ya')">Ya</button>
+            <button type="button" class="tidak" onclick="setVal('${cat}',${idx},'tidak')">Tidak</button>
+          </div>
+          <button type="button" class="note-btn" id="notebtn-${cat}-${idx}" onclick="toggleNote('${cat}',${idx})">📝 Catatan</button>
+        </div>
+        <textarea class="note-field" id="notefield-${cat}-${idx}" placeholder="Tulis catatan di sini..." oninput="setNote('${cat}',${idx},this.value)"></textarea>
+      `;
+      itemsWrap.appendChild(row);
+    });
+ 
+    section.appendChild(itemsWrap);
+ 
+    const scoreLine = document.createElement('div');
+    scoreLine.className = 'section-score';
+    scoreLine.innerHTML = `Skor (${info.short}): <span id="sec-score-${cat}">0</span> / ${info.max}`;
+    section.appendChild(scoreLine);
+ 
+    wrap.appendChild(section);
+  });
+}
+ 
+function toggleNote(cat, idx){
+  const field = document.getElementById(`notefield-${cat}-${idx}`);
+  field.classList.toggle('open');
+}
+ 
+function setVal(cat, idx, val){
+  state[cat][idx].val = val;
+  updateButtons(cat, idx);
+  recalc();
+}
+ 
+function setNote(cat, idx, note){
+  state[cat][idx].note = note;
+  const btn = document.getElementById(`notebtn-${cat}-${idx}`);
+  btn.classList.toggle('has-note', note.trim().length > 0);
+}
+ 
+function updateButtons(cat, idx){
+  const rows = document.querySelectorAll(`.section[data-cat="${cat}"] .item`);
+  const row = rows[idx];
+  const yaBtn = row.querySelector('.ya');
+  const tidakBtn = row.querySelector('.tidak');
+  yaBtn.classList.toggle('active', state[cat][idx].val === 'ya');
+  tidakBtn.classList.toggle('active', state[cat][idx].val === 'tidak');
+}
+ 
+function countYa(cat){
+  return state[cat].filter(i=>i.val==='ya').length;
+}
+ 
+// ===== NAVIGASI ANTARA BAHAGIAN =====
+function goToStep(idx){
+  currentStep = Math.max(0, Math.min(STEPS.length - 1, idx));
+  showCurrentStep();
+}
+function nextStep(){ goToStep(currentStep + 1); }
+function prevStep(){ goToStep(currentStep - 1); }
+ 
+function showCurrentStep(){
+  const cat = STEPS[currentStep];
+ 
+  document.querySelectorAll('.section[data-cat]').forEach(sec=>{
+    sec.classList.toggle('show', sec.getAttribute('data-cat') === cat);
+  });
+  document.getElementById('kesimpulanSection').classList.toggle('show', cat === 'SUMMARY');
+ 
+  updateStepperUI();
+ 
+  document.getElementById('btnPrev').disabled = currentStep === 0;
+  const nextBtn = document.getElementById('btnNext');
+  if(currentStep === STEPS.length - 1){
+    nextBtn.style.visibility = 'hidden';
+  } else {
+    nextBtn.style.visibility = 'visible';
+    nextBtn.textContent = (STEPS[currentStep+1] === 'SUMMARY') ? 'Lihat Kesimpulan ▶' : 'Seterusnya ▶';
+  }
+ 
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+ 
+// ===== PENGIRAAN SKOR =====
+function recalc(){
+  const totals = {};
+  let sumYa = 0;
+  Object.keys(CRITERIA).forEach(cat=>{
+    const c = countYa(cat);
+    totals[cat] = c;
+    sumYa += c;
+    document.getElementById(`count-${cat}`).textContent = `${c} / ${CRITERIA[cat].max} Ya`;
+    document.getElementById(`sec-score-${cat}`).textContent = c;
+  });
+ 
+  document.getElementById('scoreO').textContent  = `${totals.O} / ${CRITERIA.O.max}`;
+  document.getElementById('scoreH').textContent  = `${totals.H} / ${CRITERIA.H.max}`;
+  document.getElementById('scoreT').textContent  = `${totals.T} / ${CRITERIA.T.max}`;
+  document.getElementById('scoreTA').textContent = `${totals.TA} / ${CRITERIA.TA.max}`;
+ 
+  const pct = Math.min(100, Math.round((sumYa / DIVISOR) * 1000) / 10);
+  updateGauge(pct);
+  updateKesimpulan(sumYa, pct);
+}
+ 
+function updateGauge(pct){
+  const circumference = 2 * Math.PI * 52; // ~326.7
+  const filled = (pct/100) * circumference;
+  const fg = document.getElementById('gaugeFg');
+  fg.setAttribute('stroke-dasharray', `${filled} ${circumference}`);
+  document.getElementById('pctLabel').textContent = `${pct}%`;
+ 
+  let color = '#94a3b8';
+  if(pct < 50) color = '#dc2626';
+  else if(pct < 70) color = '#f59e0b';
+  else if(pct < 90) color = '#3b82f6';
+  else color = '#16a34a';
+  fg.setAttribute('stroke', color);
+ 
+  let level = 'Belum Dinilai';
+  if(pct < 50) level='Tidak Sedia';
+  else if(pct < 70) level='Kurang Sedia';
+  else if(pct < 90) level='Hampir Sedia';
+  else level='Telah Sedia';
+  const lvlEl = document.getElementById('lvlLabel');
+  lvlEl.textContent = level;
+  lvlEl.style.background = color;
+}
+ 
+function updateKesimpulan(sumYa, pct){
+  document.getElementById('finalSum').textContent = sumYa;
+  document.getElementById('finalPct').textContent = `${pct}%`;
+ 
+  let level, color, interpretasi;
+  if(pct < 50){
+    level='Tidak Sedia'; color='#dc2626';
+    interpretasi='Keperluan asas belum mencukupi dan penambahbaikan diperlukan.';
+  } else if(pct < 70){
+    level='Kurang Sedia'; color='#f59e0b';
+    interpretasi='Sebahagian keperluan telah dipenuhi tetapi masih terdapat jurang yang ketara untuk dilaksanakan.';
+  } else if(pct < 90){
+    level='Hampir Sedia'; color='#3b82f6';
+    interpretasi='Kebanyakan keperluan telah dipenuhi tetapi beberapa penambahbaikan masih diperlukan.';
+  } else {
+    level='Telah Sedia'; color='#16a34a';
+    interpretasi='Keperluan utama telah dipenuhi dan hospital telah menunjukkan tahap kesediaan yang tinggi.';
+  }
+ 
+  const lvlBadge = document.getElementById('finalLvl');
+  lvlBadge.textContent = level;
+  lvlBadge.style.background = color;
+  document.getElementById('finalPct').style.color = color;
+  document.getElementById('finalInterp').innerHTML =
+    `<b>Tahap: ${level}</b> — ${interpretasi}`;
+ 
+  document.querySelectorAll('#refTable tbody tr').forEach(row=>{
+    const min = parseFloat(row.getAttribute('data-min'));
+    const max = parseFloat(row.getAttribute('data-max'));
+    row.classList.toggle('active-row', pct >= min && pct <= max);
+  });
+}
+ 
+function resetForm(){
+  if(!confirm('Set semula semua jawapan?')) return;
+  initState();
+  renderSections();
+  currentStep = 0;
+  showCurrentStep();
+  recalc();
+}
+ 
+// ===== INIT =====
+renderStepper();
+renderSections();
+showCurrentStep();
+recalc();
+</script>
+</body>
+</html>
